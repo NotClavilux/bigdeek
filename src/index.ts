@@ -1,10 +1,10 @@
 function generateValidIPv4(): string {
 	const nonRoutableRanges = [
-		[0, 10], // 0.0.0.0 - 10.255.255.255
-		[100, 127], // 100.64.0.0 - 127.255.255.255 (includes loopback)
-		[169, 172], // 169.254.0.0 - 172.31.255.255
-		[192, 192], // 192.0.0.0 - 192.255.255.255 (includes private & reserved)
-		[224, 255], // 224.0.0.0 - 255.255.255.255 (multicast & reserved)
+		[0, 10],
+		[100, 127],
+		[169, 172],
+		[192, 192],
+		[224, 255],
 	];
 
 	let octets: number[];
@@ -18,7 +18,7 @@ function generateValidIPv4(): string {
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
 		const url = new URL(request.url);
-		const originURL = request.headers.get('SOrigin');
+		const originURL = request.headers.get('sorigin');
 
 		if (request.method === 'OPTIONS') {
 			return new Response(null, {
@@ -33,30 +33,25 @@ export default {
 		}
 
 		if (!originURL) {
-			if (url.pathname === '/docs') {
-				return new Response(null, {
-					headers: {
-						Location: 'https://rentry.co/soxydocs',
-						'Access-Control-Allow-Origin': '*',
-						'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-						Pragma: 'no-cache',
-						Expires: '0',
-						Vary: '*',
-					},
-					status: 302,
-				});
-			}
-
-			return new Response('missing an SOrigin. see /docs', {
-				status: 400,
-			});
+			return url.pathname === '/docs'
+				? new Response(null, {
+						status: 302,
+						headers: {
+							Location: 'https://rentry.co/soxydocs',
+							'Access-Control-Allow-Origin': '*',
+							'Cache-Control': 'no-store',
+							Pragma: 'no-cache',
+							Expires: '0',
+						},
+				  })
+				: new Response('missing an sorigin. see /docs', {
+                    status: 400,
+                    headers: { 'Access-Control-Allow-Origin': '*' },
+                });
 		}
 
-		const origin = originURL.startsWith('http') ? new URL(originURL) : new URL(`http://${originURL}`);
-
-		origin.protocol = url.protocol;
-		origin.pathname = url.pathname;
-		origin.search = url.search;
+		const origin = new URL(originURL.startsWith('http') ? originURL : `http://${originURL}`);
+		Object.assign(origin, { protocol: url.protocol, pathname: url.pathname, search: url.search });
 
 		const reqHeaders = new Headers(request.headers);
 		reqHeaders.delete('SOrigin');
@@ -66,20 +61,22 @@ export default {
 			const originResponse = await fetch(origin.toString(), {
 				method: request.method,
 				headers: reqHeaders,
-				body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
+				body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
 				redirect: 'manual',
 			});
 
 			const newHeaders = new Headers(originResponse.headers);
+			newHeaders.set('Access-Control-Allow-Origin', '*');
 			newHeaders.set('X-Resolved', origin.toString());
 
 			return new Response(originResponse.body, {
 				status: originResponse.status === 301 ? 302 : originResponse.status,
 				headers: newHeaders,
 			});
-		} catch (e) {
+		} catch {
 			return new Response('unable to connect to origin', {
 				status: 400,
+				headers: { 'Access-Control-Allow-Origin': '*' },
 			});
 		}
 	},
