@@ -7,7 +7,7 @@ function redirectDocs(): Response {
 			Location: 'https://github.com/dragsbruh/soxy',
 			...corsHeadersLite,
 		},
-	});	
+	});
 }
 
 async function hitOrigin(
@@ -40,7 +40,8 @@ export default {
 		const origin = request.headers.get('x-forward-to') || request.headers.get('sorigin') || url.pathname.match(pathnameDomainRegex)?.[1];
 		const redirectBehavior = request.headers.get('x-redirect-behavior') || url.searchParams.get('soxy-redirects') || 'follow';
 
-		if (redirectBehavior !== 'follow' && redirectBehavior !== 'manual' && redirectBehavior !== 'error') return new Response('invalid redirect behavior', { status: 400, headers: corsHeadersLite });
+		if (redirectBehavior !== 'follow' && redirectBehavior !== 'manual' && redirectBehavior !== 'error')
+			return new Response('invalid redirect behavior', { status: 400, headers: corsHeadersLite });
 
 		if (url.pathname === '/docs' || (url.pathname === '/docs/' && !origin)) return redirectDocs();
 
@@ -87,7 +88,7 @@ export default {
 		}
 
 		return new Response(response.body, {
-			status: response.status > 300 && response.status < 400 ? 307 : response.status,
+			status: response.status >= 300 && response.status < 400 ? 307 : response.status,
 			headers: {
 				...responseHeaders,
 				...corsHeadersLite,
